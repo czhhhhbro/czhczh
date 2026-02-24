@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雪球Chat</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+    --tg-primary: #2AABEE;
+    --tg-primary-hover: #229ED9;
+    --tg-bg: #F0F2F5;
+    --tg-white: #FFFFFF;
+    --tg-gray: #8A9199;
+    --tg-light-gray: #E5E7EB;
+    --tg-message-self: #E1FFC7;
+    --tg-message-other: #FFFFFF;
+    --tg-border: #E0E3E9;
+}
+
+body {
+    background: var(--tg-bg);
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* 登录弹窗 */
+.login-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.login-box {
+    background: var(--tg-white);
+    width: 90%;
+    max-width: 380px;
+    padding: 40px 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    text-align: center;
+}
+
+.login-box h1 {
+    color: var(--tg-primary);
+    font-size: 24px;
+    margin-bottom: 12px;
+}
+
+.login-box p {
+    color: var(--tg-gray);
+    margin-bottom: 24px;
+}
+
+.login-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    border-bottom: 2px solid var(--tg-light-gray);
+    font-size: 16px;
+    outline: none;
+    margin-bottom: 24px;
+    transition: border-color 0.2s;
+}
+
+.login-input:focus {
+    border-color: var(--tg-primary);
+}
+
+.login-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--tg-primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.login-btn:hover {
+    background: var(--tg-primary-hover);
+}
+
+/* 主布局 - Telegram经典三栏 */
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* 左侧侧边栏 */
+.sidebar {
+    width: 280px;
+    background: var(--tg-white);
+    border-right: 1px solid var(--tg-border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.sidebar-header {
+    padding: 16px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--tg-border);
+}
+
+.menu-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--tg-gray);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tg-primary), #1E88E5);
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.search-box {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--tg-border);
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 16px;
+    border-radius: 24px;
+    border: none;
+    background: var(--tg-bg);
+    font-size: 14px;
+    outline: none;
+}
+
+.chat-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.chat-item {
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.chat-item:hover {
+    background: var(--tg-bg);
+}
+
+.chat-item.active {
+    background: var(--tg-bg);
+}
+
+.chat-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tg-primary), #1E88E5);
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.chat-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #111;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-last-msg {
+    font-size: 13px;
+    color: var(--tg-gray);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 中间聊天主区域 */
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%232aabee' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+.chat-header {
+    padding: 12px 20px;
+    background: var(--tg-white);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.chat-header-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tg-primary), #1E88E5);
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chat-header-info {
+    flex: 1;
+}
+
+.chat-header-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #111;
+}
+
+.chat-header-desc {
+    font-size: 13px;
+    color: var(--tg-gray);
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Telegram风格消息气泡 */
+.message {
+    max-width: 65%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 15px;
+    line-height: 1.5;
+    position: relative;
+    word-break: break-word;
+}
+
+.message.self {
+    align-self: flex-end;
+    background: var(--tg-message-self);
+    border-bottom-right-radius: 2px;
+}
+
+.message.other {
+    align-self: flex-start;
+    background: var(--tg-message-other);
+    border-bottom-left-radius: 2px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.08);
+}
+
+.message-username {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tg-primary);
+    margin-bottom: 2px;
+}
+
+.message-time {
+    font-size: 11px;
+    color: var(--tg-gray);
+    text-align: right;
+    margin-top: 2px;
+}
+
+/* 底部输入框 */
+.chat-input-bar {
+    padding: 12px 20px;
+    background: var(--tg-white);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.input-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.chat-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 24px;
+    border: none;
+    background: var(--tg-bg);
+    font-size: 15px;
+    outline: none;
+    min-height: 48px;
+    max-height: 120px;
+    resize: none;
+}
+
+.send-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--tg-primary);
+    color: white;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.send-btn:hover {
+    background: var(--tg-primary-hover);
+}
+
+/* 右侧信息栏 */
+.sidebar-right {
+    width: 280px;
+    background: var(--tg-white);
+    border-left: 1px solid var(--tg-border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-right-header {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--tg-border);
+}
+
+.sidebar-right-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tg-primary), #1E88E5);
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 12px;
+}
+
+.sidebar-right-name {
+    font-weight: 600;
+    font-size: 18px;
+    margin-bottom: 4px;
+}
+
+.sidebar-right-desc {
+    font-size: 13px;
+    color: var(--tg-gray);
+}
+
+.member-list {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+.member-item {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 8px;
+}
+
+.member-item:hover {
+    background: var(--tg-bg);
+}
+
+.member-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--tg-primary), #1E88E5);
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.member-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* 响应式适配 */
+@media (max-width: 900px) {
+    .sidebar-right {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .sidebar {
+        position: absolute;
+        left: -280px;
+        height: 100vh;
+        z-index: 999;
+        transition: left 0.3s;
+    }
+    .sidebar.show {
+        left: 0;
+    }
+}
+</style>
+</head>
+<body>
+
+<!-- 登录弹窗 -->
+<div class="login-modal" id="loginModal">
+    <div class="login-box">
+        <h1>Chat</h1>
+        <p>公共聊天室</p>
+        <input type="text" class="login-input" id="usernameInput" placeholder="请输入你的用户名" maxlength="20">
+        <button class="login-btn" onclick="login()">进入聊天室</button>
+    </div>
+</div>
+
+<!-- 主应用 -->
+<div class="app-container" id="app" style="display: none;">
+    <!-- 左侧侧边栏 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="menu-btn" id="menuBtn">☰</button>
+            <div class="user-avatar" id="userAvatar">?</div>
+        </div>
+        <div class="search-box">
+            <input type="text" class="search-input" placeholder="搜索" readonly>
+        </div>
+        <div class="chat-list">
+            <div class="chat-item active" data-chat-id="public">
+                <div class="chat-avatar">公</div>
+                <div class="chat-info">
+                    <div class="chat-name">公共聊天室</div>
+                    <div class="chat-last-msg" id="lastMsg">欢迎加入聊天室</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 中间聊天主区域 -->
+    <div class="chat-main">
+        <div class="chat-header">
+            <div class="chat-header-avatar">公</div>
+            <div class="chat-header-info">
+                <div class="chat-header-name">公共聊天室</div>
+                <div class="chat-header-desc" id="onlineCount">在线人数：0</div>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="chat-input-bar">
+            <div class="input-wrapper">
+                <textarea class="chat-input" id="msgInput" placeholder="输入消息..." rows="1"></textarea>
+            </div>
+            <button class="send-btn" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+    <!-- 右侧信息栏 -->
+    <div class="sidebar-right">
+        <div class="sidebar-right-header">
+            <div class="sidebar-right-avatar">公</div>
+            <div class="sidebar-right-name">公共聊天室</div>
+            <div class="sidebar-right-desc">全员可见的公共聊天频道</div>
+        </div>
+        <div class="member-list">
+            <div class="member-item">
+                <div class="member-avatar">系</div>
+                <div class="member-name">系统消息</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentUser = '';
+const loginModal = document.getElementById('loginModal');
+const app = document.getElementById('app');
+const chatMessages = document.getElementById('chatMessages');
+const msgInput = document.getElementById('msgInput');
+const userAvatar = document.getElementById('userAvatar');
+const lastMsg = document.getElementById('lastMsg');
+const onlineCount = document.getElementById('onlineCount');
+
+// 自动调整输入框高度
+msgInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// 回车发送消息
+msgInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+// 登录
+function login() {
+    const username = document.getElementById('usernameInput').value.trim();
+    if (!username) {
+        alert('请输入用户名');
+        return;
+    }
+    currentUser = username;
+    localStorage.setItem('chat_username', username);
+    userAvatar.innerText = username.charAt(0);
+    loginModal.style.display = 'none';
+    app.style.display = 'flex';
+    loadMessages();
+}
+
+// 页面加载检查登录状态
+window.onload = function() {
+    const savedUser = localStorage.getItem('chat_username');
+    if (savedUser) {
+        currentUser = savedUser;
+        userAvatar.innerText = savedUser.charAt(0);
+        loginModal.style.display = 'none';
+        app.style.display = 'flex';
+        loadMessages();
+    }
+}
+
+// 发送消息
+async function sendMessage() {
+    if (!currentUser) {
+        loginModal.style.display = 'flex';
+        return;
+    }
+    const content = msgInput.value.trim();
+    if (!content) return;
+
+    await fetch('/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: currentUser,
+            content: content
+        })
+    });
+
+    msgInput.value = '';
+    msgInput.style.height = 'auto';
+    loadMessages();
+}
+
+// 加载消息
+async function loadMessages() {
+    if (!currentUser) return;
+    const res = await fetch('/messages');
+    const data = await res.json();
+    const messages = data.messages;
+    const online = data.online;
+
+    // 更新在线人数
+    onlineCount.innerText = `在线人数：${online}`;
+
+    // 更新最后一条消息预览
+    if (messages.length > 0) {
+        const last = messages[messages.length - 1];
+        lastMsg.innerText = `${last.username}：${last.content}`;
+    }
+
+    // 渲染消息
+    chatMessages.innerHTML = '';
+    messages.forEach(msg => {
+        const isSelf = msg.username === currentUser;
+        const div = document.createElement('div');
+        div.className = `message ${isSelf ? 'self' : 'other'}`;
+
+        div.innerHTML = `
+            ${!isSelf ? `<div class="message-username">${msg.username}</div>` : ''}
+            <div>${msg.content}</div>
+            <div class="message-time">${formatTime(msg.timestamp)}</div>
+        `;
+        chatMessages.appendChild(div);
+    });
+
+    // 滚动到底部
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// 格式化时间
+function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
+
+// 自动刷新消息
+setInterval(loadMessages, 1500);
+
+// 移动端菜单切换
+document.getElementById('menuBtn').addEventListener('click', function() {
+    document.getElementById('sidebar').classList.toggle('show');
+});
+</script>
+</body>
+</html>
